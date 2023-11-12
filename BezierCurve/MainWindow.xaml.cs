@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -21,21 +22,22 @@ namespace BezierCurve
     /// </summary>
     public partial class MainWindow : Window
     {
-        int numberOfPoints = 3;
+        int numberOfPoints = 0;
         List<Point> controlPoints = new List<Point>();
+        private bool isDragging = false;
+        private Point selectedPoint;
+        
         public MainWindow()
         {
             InitializeComponent();
         }
-        private Point selectedPoint;
-        private bool isDragging = false;
         private void DrawBezierCurve()
         {
             canvas.Children.Clear();
 
             List<Point> bezierPoints = new List<Point>();
 
-            for (double t = 0; t <= 1; t += 0.01)
+            for (double t = 0; t <= 1; t += 0.002)
             {
                 Point bezierPoint = CalculateBezierPoint(t);
                 bezierPoints.Add(bezierPoint);
@@ -64,7 +66,7 @@ namespace BezierCurve
                 {
                     Width = 5,
                     Height = 5,
-                    Fill = Brushes.Red
+                    Fill = Brushes.Green
                 };
 
                 Canvas.SetLeft(ellipse, point.X - ellipse.Width / 2);
@@ -79,7 +81,7 @@ namespace BezierCurve
             int exponent = controlPoints.Count - 1;
             double x = 0, y = 0;
 
-            for (int i = 0; i <= exponent; i++)
+            for (int i = 0; i <= exponent; i++)     //use bernsetin polynomial
             {
                 double bezierSum = NewtonBinomial(exponent, i) * Math.Pow(1 - t, exponent - i) * Math.Pow(t, i);
                 x += bezierSum * controlPoints[i].X;
@@ -93,10 +95,9 @@ namespace BezierCurve
         {
             int result = 1;
 
-            for (int i = 1; i <= index; i++)
-            {
+            for (int i = 1; i <= index; i++)            
                 result = result * (exponent - i + 1) / i;
-            }
+            
 
             return result;
         }
@@ -111,7 +112,7 @@ namespace BezierCurve
 
         private void canvas_MouseMove(object sender, MouseEventArgs e)
         {
-            if (isDragging)
+            if (isDragging && e.LeftButton == MouseButtonState.Pressed)
             {
                 int indexOfPoint = controlPoints.IndexOf(selectedPoint);
                 if (indexOfPoint == -1) return;
@@ -126,13 +127,13 @@ namespace BezierCurve
         private void canvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
             if (isDragging)
-                isDragging = false;         //doesnt work correctly
+                isDragging = false;       
         }
         private void setPointByClick(object sender, MouseButtonEventArgs e)
         {
             Point mousePosition = e.GetPosition(canvas);
-            bool existsPoint = controlPoints.Contains(new Point(mousePosition.X, mousePosition.Y)); //have to add an offset
-
+            bool existsPoint = controlPoints.Any(p => Math.Abs(p.X- mousePosition.X) < 10 & Math.Abs(p.Y - mousePosition.Y) < 10);
+            
             if (!existsPoint & numberOfPoints > controlPoints.Count) controlPoints.Add(new Point(mousePosition.X, mousePosition.Y));
             else if (existsPoint)
             {
@@ -148,8 +149,10 @@ namespace BezierCurve
         {
             var dialog = new Window();
             var sp = new StackPanel();
-            dialog.Width = 150;
-            dialog.Height = 350;
+            var scrollViewer = new ScrollViewer();
+
+            dialog.Width = 250;
+            dialog.Height = 400;
             sp.Children.Add(new TextBlock(new Run("Provide coordinates of your points")));
             var button = new Button();
 
@@ -165,6 +168,11 @@ namespace BezierCurve
                     Point existingPoint = fillValuesOfPoints(i);
                     xValue.Text = existingPoint.X.ToString();
                     yValue.Text = existingPoint.Y.ToString();
+                }
+                else
+                {
+                    xValue.Text = "0";
+                    yValue.Text = "0";
                 }
 
                 sp.Children.Add(xText);
@@ -193,7 +201,8 @@ namespace BezierCurve
             };
             sp.Children.Add(button);
 
-            dialog.Content = sp;
+            scrollViewer.Content = sp;
+            dialog.Content = scrollViewer;
             dialog.ShowDialog();
         }
 
